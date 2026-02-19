@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>בנק דור ויובל 31.0</title>
+    <title>בנק דור ויובל 31.0 - מחובר לענן!</title>
     <style>
         :root { --bg: #000000; --text: #ffffff; --card: #1a1a1a; --border: #bb86fc; }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; direction: rtl; }
         
         .app-container { max-width: 450px; margin: 0 auto; background: var(--card); border-radius: 20px; padding: 15px; border: 2px solid var(--border); min-height: 90vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
-        /* תיקון מסך כניסה */
         .screen { display: none; width: 100%; }
         .active { display: block; }
         
@@ -40,11 +39,15 @@
         .history-list { overflow-y: auto; margin-top: 8px; border-top: 1px solid #333; font-size: 0.8rem; max-height: 250px; }
         .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; }
         .plus { color: #2ecc71; } .minus { color: #ff4757; }
+
+        #cloud-status { background: #333; color: #ffd700; text-align: center; padding: 5px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
+    <div id="cloud-status">מתחבר לענן... ☁️</div>
+
     <div id="login-scr" class="screen active">
         <h2 style="text-align:center; margin: 20px 0;">💰 בנק דור ויובל</h2>
         <div class="login-btn-container">
@@ -102,6 +105,13 @@
 </div>
 
 <script>
+    // ==========================================
+    // הגדרות הענן - כאן עליך להדביק את הקודים שלך
+    // ==========================================
+    const BIN_ID = "6996e2fc43b1c97be98b0eb3";
+    const API_KEY = "$2a$10$o9q9zgegPj0cvFzAisYsduguETfd3RDxhMt7sCQTJFBjq2ZiEIYoi";
+    // ==========================================
+
     function playSound(type) {
         const s = {
             plus: "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3",
@@ -118,92 +128,126 @@
     const INITIAL_DB = {
         dor: { p:"1234", b:4936, g:10000, lastInt: "", h: [
             {d:"מטבעות חנוכה 138 ואנחנו 138", a:276, t:"plus", approved:true},
-            {d:"הלל חנוכה 200 אנחנו 50 ירון 50", a:300, t:"plus", approved:true},
-            {d:"משיכת 300 מזומן", a:300, t:"minus", approved:true},
-            {d:"יום הולדת כיתה", a:960, t:"plus", approved:true},
-            {d:"מונופול שדור קנה", a:58, t:"minus", approved:true},
-            {d:"יום הולדת רקפת", a:100, t:"plus", approved:true},
-            {d:"יום הולדת הלל", a:500, t:"plus", approved:true},
-            {d:"פיית שיניים", a:20, t:"plus", approved:true},
-            {d:"מצא", a:10, t:"plus", approved:true},
-            {d:"פסח", a:250, t:"plus", approved:true},
-            {d:"קנס טלפון עדי", a:25, t:"plus", approved:true},
-            {d:"הלל", a:500, t:"plus", approved:true},
-            {d:"יום הולדת", a:350, t:"plus", approved:true},
-            {d:"החזיר מזומן", a:207, t:"plus", approved:true},
-            {d:"פוקימן", a:20, t:"minus", approved:true},
-            {d:"ליריד", a:30, t:"minus", approved:true},
-            {d:"יריב יום הולדת", a:100, t:"plus", approved:true},
-            {d:"הלל יום הולדת", a:500, t:"plus", approved:true},
             {d:"דור פתיחה", a:1030, t:"plus", approved:true}
         ]},
         yuval: { p:"5678", b:2201, g:10000, lastInt: "", h: [
-            {d:"תשלום על מראה", a:200, t:"minus", approved:true},
-            {d:"מטבעות חנוכה 160x2", a:320, t:"plus", approved:true},
-            {d:"חנוכה", a:100, t:"plus", approved:true},
-            {d:"בייביסיטר", a:50, t:"plus", approved:true},
-            {d:"יום הולדת", a:100, t:"plus", approved:true},
-            {d:"בייביסיטר", a:30, t:"plus", approved:true},
-            {d:"הורים יום הולדת", a:1000, t:"plus", approved:true},
-            {d:"פלג", a:270, t:"plus", approved:true},
-            {d:"פסח", a:200, t:"plus", approved:true},
-            {d:"הלל", a:200, t:"plus", approved:true},
-            {d:"יום הולדת", a:150, t:"plus", approved:true},
-            {d:"לייזר", a:30, t:"minus", approved:true},
-            {d:"BITZEE משחק", a:179, t:"minus", approved:true},
-            {d:"קניון", a:250, t:"minus", approved:true},
-            {d:"יום הולדת כיתה", a:582, t:"plus", approved:true},
             {d:"יובל פתיחה", a:2201, t:"plus", approved:true}
         ]}
     };
 
-    let db = JSON.parse(localStorage.getItem('KidsBankV31')) || INITIAL_DB;
+    let db = INITIAL_DB;
     let curUser = ""; const ADMIN_PASS = "2910";
+    let isDataLoaded = false;
 
-    function preLogin(u) { curUser = u; document.getElementById('pin-box').style.display = 'block'; }
+    // פונקציה שמתחברת לענן ברגע שהאתר נטען
+    async function initCloud() {
+        if(BIN_ID === "הכנס_כאן_את_ה_BIN_ID_שלך") {
+            document.getElementById('cloud-status').innerText = "⚠️ פועל מקומית - טרם הוכנסו קודי הענן";
+            isDataLoaded = true;
+            return;
+        }
+        try {
+            const res = await fetch(https://api.jsonbin.io/v3/b/${BIN_ID}/latest, {
+                headers: { 'X-Master-Key': API_KEY }
+            });
+            const data = await res.json();
+            if(data.record && data.record.dor) {
+                db = data.record;
+            }
+            document.getElementById('cloud-status').innerText = "מחובר לענן! ✅";
+            setTimeout(() => document.getElementById('cloud-status').style.display = 'none', 2500);
+        } catch(e) {
+            document.getElementById('cloud-status').innerText = "❌ שגיאה בהתחברות לענן";
+        }
+        isDataLoaded = true;
+    }
+
+    // פונקציה ששומרת לענן אחרי כל שינוי
+    async function saveToCloud() {
+        if(BIN_ID === "הכנס_כאן_את_ה_BIN_ID_שלך") return;
+        try {
+            const statusBox = document.getElementById('cloud-status');
+            statusBox.style.display = 'block';
+            statusBox.innerText = "שומר בענן... ⏳";
+            
+            await fetch(https://api.jsonbin.io/v3/b/${BIN_ID}, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify(db)
+            });
+            
+            statusBox.innerText = "נשמר בהצלחה! ✅";
+            setTimeout(() => statusBox.style.display = 'none', 2000);
+        } catch(e) {
+            alert("שגיאה בשמירה לענן! בדוק חיבור לאינטרנט.");
+        }
+    }
+
+    function preLogin(u) { 
+        if(!isDataLoaded) return alert("אנא המתן להתחברות לענן...");
+        curUser = u; 
+        document.getElementById('pin-box').style.display = 'block'; 
+    }
+    
     function checkPass() {
         if(document.getElementById('pass-in').value === db[curUser].p) {
             document.getElementById('login-scr').style.display = 'none';
             document.getElementById('acc-scr').style.display = 'block';
             document.getElementById('hello-text').innerText = "שלום " + (curUser==='dor'?'דור':'יובל');
-            refresh();
+            refresh(false); // טעינה ראשונית בלי לשמור
         } else { alert("טעות"); }
     }
 
-    function syncGoalRange(v) { db[curUser].g = parseInt(v) || 0; refresh(); }
-    function syncGoalInput(v) { document.getElementById('goal-input').value = v; db[curUser].g = parseInt(v); refresh(); }
+    function syncGoalRange(v) { db[curUser].g = parseInt(v) || 0; refresh(true); }
+    function syncGoalInput(v) { document.getElementById('goal-input').value = v; db[curUser].g = parseInt(v); refresh(true); }
 
     function requestInterest() {
         const m = new Date().getMonth() + "-" + new Date().getFullYear();
         if(db[curUser].lastInt === m) return alert("כבר ביקשת החודש");
         const bonus = Math.floor(db[curUser].b * (0.04/12));
         db[curUser].h.unshift({d: "ריבית חודשית", a: bonus, t: "plus", approved: false, isInt: true, mTag: m});
-        playSound('interest'); refresh();
+        playSound('interest'); refresh(true);
     }
 
     function update(t) {
         const v = parseInt(document.getElementById('new-amt').value); const d = document.getElementById('new-desc').value;
         if(!v || !d) return alert("מלא פרטים");
         db[curUser].h.unshift({d: d, a: v, t: t, approved: false});
-        playSound(t); document.getElementById('new-amt').value = ""; document.getElementById('new-desc').value = ""; refresh();
+        playSound(t); document.getElementById('new-amt').value = ""; document.getElementById('new-desc').value = ""; refresh(true);
     }
 
     function adminApprove() {
         if(document.getElementById('admin-pass-in').value === ADMIN_PASS) {
             db[curUser].h.forEach(i => { if(!i.approved) { i.approved = true; db[curUser].b += (i.t === 'plus' ? i.a : -i.a); if(i.isInt) db[curUser].lastInt = i.mTag; } });
-            playSound('approve'); document.getElementById('admin-pass-in').value = ""; refresh();
+            playSound('approve'); document.getElementById('admin-pass-in').value = ""; refresh(true);
         } else { alert("סיסמה שגויה"); }
     }
 
-    function refresh() {
-        const u = db[curUser]; document.getElementById('bal-val').innerText = u.b.toLocaleString(); document.getElementById('goal-input').value = u.g;
+    function refresh(shouldSaveToCloud = false) {
+        const u = db[curUser]; 
+        document.getElementById('bal-val').innerText = u.b.toLocaleString(); 
+        document.getElementById('goal-input').value = u.g;
         document.getElementById('goal-range').value = Math.min(u.g, 20000);
-        const p = u.g > 0 ? Math.floor((u.b/u.g)*100) : 0; document.getElementById('bar-fill').style.width = Math.min(p, 100) + "%"; document.getElementById('bar-fill').innerText = p + "%";
-        const pending = u.h.filter(i => !i.approved); document.getElementById('pending-section').style.display = pending.length ? 'block' : 'none';
-        document.getElementById('pending-list').innerHTML = pending.map(i => `⏳ ${i.d}: ${i.a}₪`).join(' | ');
-        document.getElementById('hist-view').innerHTML = u.h.filter(i => i.approved).map(i => `<div class="history-item"><span>${i.d}</span><span class="${i.t}">${i.t==='plus'?'+':'-'}${i.a}₪</span></div>`).join('');
-        localStorage.setItem('KidsBankV31', JSON.stringify(db));
+        
+        const p = u.g > 0 ? Math.floor((u.b/u.g)*100) : 0; 
+        document.getElementById('bar-fill').style.width = Math.min(p, 100) + "%"; 
+        document.getElementById('bar-fill').innerText = p + "%";
+        
+        const pending = u.h.filter(i => !i.approved); 
+        document.getElementById('pending-section').style.display = pending.length ? 'block' : 'none';
+        document.getElementById('pending-list').innerHTML = pending.map(i => ⏳ ${i.d}: ${i.a}₪).join(' | ');
+        document.getElementById('hist-view').innerHTML = u.h.filter(i => i.approved).map(i => <div class="history-item"><span>${i.d}</span><span class="${i.t}">${i.t==='plus'?'+':'-'}${i.a}₪</span></div>).join('');
+        
+        if (shouldSaveToCloud) {
+            saveToCloud();
+        }
     }
+
+    // הפעלת החיבור לענן ברגע שהעמוד עולה
+    initCloud();
 </script>
 </body>
 </html>
