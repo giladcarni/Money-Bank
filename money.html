@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בנק דור ויובל 31.0</title>
+    <style>
+        :root { --bg: #000000; --text: #ffffff; --card: #1a1a1a; --border: #bb86fc; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; direction: rtl; }
+        
+        .app-container { max-width: 450px; margin: 0 auto; background: var(--card); border-radius: 20px; padding: 15px; border: 2px solid var(--border); min-height: 90vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        
+        /* תיקון מסך כניסה */
+        .screen { display: none; width: 100%; }
+        .active { display: block; }
+        
+        .login-btn-container { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+        .name-btn { 
+            width: 100%; padding: 25px; border: none; border-radius: 15px; 
+            font-size: 2.2rem; font-weight: bold; cursor: pointer; color: white;
+            display: block; text-align: center;
+        }
+        .dor-btn { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .yuval-btn { background: linear-gradient(135deg, #f39c12, #d35400); }
+        
+        #tip-box { background: rgba(255, 215, 0, 0.1); border: 1px solid #ffd700; border-radius: 12px; padding: 8px; margin-bottom: 8px; text-align: center; color: #ffd700; font-size: 0.85rem; min-height: 45px; }
+        .balance-card { background: rgba(187, 134, 252, 0.1); padding: 10px; border-radius: 15px; margin-bottom: 8px; border: 1px solid var(--border); text-align: center; }
+        .amount { font-size: 2.4rem; font-weight: bold; color: #bb86fc; }
+        
+        .bar-bg { background: #333; height: 22px; border-radius: 15px; overflow: hidden; margin: 5px 0; border: 1px solid #444; }
+        .bar-fill { background: linear-gradient(90deg, #ffd700, #ff9800); height: 100%; width: 0%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; font-size: 0.75rem; }
+        
+        .goal-controls { background: #222; padding: 8px; border-radius: 12px; margin-bottom: 8px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        #pending-section { border: 1px dashed #ff4757; padding: 6px; border-radius: 10px; background: rgba(255, 71, 87, 0.05); margin-bottom: 8px; }
+        
+        input { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid #444; border-radius: 10px; background: #222; color: white; text-align: center; font-size: 1rem; box-sizing: border-box; }
+        .action-btn { background: var(--border); color: #000; border: none; padding: 12px; border-radius: 10px; width: 100%; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        
+        .history-list { overflow-y: auto; margin-top: 8px; border-top: 1px solid #333; font-size: 0.8rem; max-height: 250px; }
+        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; }
+        .plus { color: #2ecc71; } .minus { color: #ff4757; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="login-scr" class="screen active">
+        <h2 style="text-align:center; margin: 20px 0;">💰 בנק דור ויובל</h2>
+        <div class="login-btn-container">
+            <button class="name-btn dor-btn" onclick="preLogin('dor')">👦 דור</button>
+            <button class="name-btn yuval-btn" onclick="preLogin('yuval')">👧 יובל</button>
+        </div>
+        <div id="pin-box" style="display:none; margin-top:20px;">
+            <input type="password" id="pass-in" placeholder="סיסמת ילד" inputmode="numeric">
+            <button class="action-btn" onclick="checkPass()" style="background: white; margin-top: 10px;">כניסה 🚀</button>
+        </div>
+    </div>
+
+    <div id="acc-scr" class="screen">
+        <div id="tip-box">💡 טוען טיפ חכם...</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <button onclick="location.reload()" style="background:#444; border:none; color:white; padding:8px 12px; border-radius:8px; font-size:0.8rem;">יציאה</button>
+            <h3 id="hello-text" style="margin:0;">שלום</h3>
+            <button class="action-btn" style="background:#9c27b0; color:white; width:auto; padding:8px 12px; font-size:0.8rem;" onclick="requestInterest()">📈 ריבית</button>
+        </div>
+        
+        <div class="balance-card">
+            <div class="amount">₪ <span id="bal-val">0</span></div>
+        </div>
+
+        <div class="goal-controls">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                <span>יעד:</span>
+                <input type="number" id="goal-input" style="width:80px; height:25px; margin:0;" oninput="syncGoalRange(this.value)">
+            </div>
+            <input type="range" id="goal-range" min="1000" max="20000" step="500" oninput="syncGoalInput(this.value)">
+            <div class="bar-bg"><div id="bar-fill" class="bar-fill">0%</div></div>
+        </div>
+
+        <div id="pending-section" style="display:none;">
+            <div id="pending-list" style="font-size:0.75rem; color:#ff4757; margin-bottom:5px;"></div>
+            <div style="display:flex; gap:5px;">
+                <input type="password" id="admin-pass-in" placeholder="סיסמת הורה" style="margin:0; flex-grow:1;">
+                <button class="action-btn" style="background:#ff4757; color:white; width:70px; padding:5px;" onclick="adminApprove()">אשר</button>
+            </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border: 1px solid #333;">
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="new-amt" placeholder="סכום" style="margin:0;">
+                <input type="text" id="new-desc" placeholder="תיאור" style="margin:0;">
+            </div>
+            <div style="display:flex; gap:5px; margin-top:5px;">
+                <button class="action-btn" style="background:#2ecc71; color:white;" onclick="update('plus')">הפקדה +</button>
+                <button class="action-btn" style="background:#e74c3c; color:white;" onclick="update('minus')">משיכה -</button>
+            </div>
+        </div>
+
+        <div class="history-list" id="hist-view"></div>
+    </div>
+</div>
+
+<script>
+    function playSound(type) {
+        const s = {
+            plus: "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3",
+            minus: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
+            approve: "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3",
+            interest: "https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3"
+        };
+        new Audio(s[type]).play().catch(() => {});
+    }
+
+    const TIPS = ["כסף שלא מבזבזים היום, שווה יותר מחר.", "ריבית היא הקסם שגורם לכסף לעבוד.", "כיבוי אורות חוסך כסף.", "השקעה חכמה מביאה רווחים."];
+    let tIdx = 0; setInterval(() => { const b = document.getElementById('tip-box'); if(b) { b.innerText = "💡 " + TIPS[tIdx]; tIdx = (tIdx + 1) % TIPS.length; } }, 10000);
+
+    const INITIAL_DB = {
+        dor: { p:"1234", b:4936, g:10000, lastInt: "", h: [
+            {d:"מטבעות חנוכה 138 ואנחנו 138", a:276, t:"plus", approved:true},
+            {d:"הלל חנוכה 200 אנחנו 50 ירון 50", a:300, t:"plus", approved:true},
+            {d:"משיכת 300 מזומן", a:300, t:"minus", approved:true},
+            {d:"יום הולדת כיתה", a:960, t:"plus", approved:true},
+            {d:"מונופול שדור קנה", a:58, t:"minus", approved:true},
+            {d:"יום הולדת רקפת", a:100, t:"plus", approved:true},
+            {d:"יום הולדת הלל", a:500, t:"plus", approved:true},
+            {d:"פיית שיניים", a:20, t:"plus", approved:true},
+            {d:"מצא", a:10, t:"plus", approved:true},
+            {d:"פסח", a:250, t:"plus", approved:true},
+            {d:"קנס טלפון עדי", a:25, t:"plus", approved:true},
+            {d:"הלל", a:500, t:"plus", approved:true},
+            {d:"יום הולדת", a:350, t:"plus", approved:true},
+            {d:"החזיר מזומן", a:207, t:"plus", approved:true},
+            {d:"פוקימן", a:20, t:"minus", approved:true},
+            {d:"ליריד", a:30, t:"minus", approved:true},
+            {d:"יריב יום הולדת", a:100, t:"plus", approved:true},
+            {d:"הלל יום הולדת", a:500, t:"plus", approved:true},
+            {d:"דור פתיחה", a:1030, t:"plus", approved:true}
+        ]},
+        yuval: { p:"5678", b:2201, g:10000, lastInt: "", h: [
+            {d:"תשלום על מראה", a:200, t:"minus", approved:true},
+            {d:"מטבעות חנוכה 160x2", a:320, t:"plus", approved:true},
+            {d:"חנוכה", a:100, t:"plus", approved:true},
+            {d:"בייביסיטר", a:50, t:"plus", approved:true},
+            {d:"יום הולדת", a:100, t:"plus", approved:true},
+            {d:"בייביסיטר", a:30, t:"plus", approved:true},
+            {d:"הורים יום הולדת", a:1000, t:"plus", approved:true},
+            {d:"פלג", a:270, t:"plus", approved:true},
+            {d:"פסח", a:200, t:"plus", approved:true},
+            {d:"הלל", a:200, t:"plus", approved:true},
+            {d:"יום הולדת", a:150, t:"plus", approved:true},
+            {d:"לייזר", a:30, t:"minus", approved:true},
+            {d:"BITZEE משחק", a:179, t:"minus", approved:true},
+            {d:"קניון", a:250, t:"minus", approved:true},
+            {d:"יום הולדת כיתה", a:582, t:"plus", approved:true},
+            {d:"יובל פתיחה", a:2201, t:"plus", approved:true}
+        ]}
+    };
+
+    let db = JSON.parse(localStorage.getItem('KidsBankV31')) || INITIAL_DB;
+    let curUser = ""; const ADMIN_PASS = "2910";
+
+    function preLogin(u) { curUser = u; document.getElementById('pin-box').style.display = 'block'; }
+    function checkPass() {
+        if(document.getElementById('pass-in').value === db[curUser].p) {
+            document.getElementById('login-scr').style.display = 'none';
+            document.getElementById('acc-scr').style.display = 'block';
+            document.getElementById('hello-text').innerText = "שלום " + (curUser==='dor'?'דור':'יובל');
+            refresh();
+        } else { alert("טעות"); }
+    }
+
+    function syncGoalRange(v) { db[curUser].g = parseInt(v) || 0; refresh(); }
+    function syncGoalInput(v) { document.getElementById('goal-input').value = v; db[curUser].g = parseInt(v); refresh(); }
+
+    function requestInterest() {
+        const m = new Date().getMonth() + "-" + new Date().getFullYear();
+        if(db[curUser].lastInt === m) return alert("כבר ביקשת החודש");
+        const bonus = Math.floor(db[curUser].b * (0.04/12));
+        db[curUser].h.unshift({d: "ריבית חודשית", a: bonus, t: "plus", approved: false, isInt: true, mTag: m});
+        playSound('interest'); refresh();
+    }
+
+    function update(t) {
+        const v = parseInt(document.getElementById('new-amt').value); const d = document.getElementById('new-desc').value;
+        if(!v || !d) return alert("מלא פרטים");
+        db[curUser].h.unshift({d: d, a: v, t: t, approved: false});
+        playSound(t); document.getElementById('new-amt').value = ""; document.getElementById('new-desc').value = ""; refresh();
+    }
+
+    function adminApprove() {
+        if(document.getElementById('admin-pass-in').value === ADMIN_PASS) {
+            db[curUser].h.forEach(i => { if(!i.approved) { i.approved = true; db[curUser].b += (i.t === 'plus' ? i.a : -i.a); if(i.isInt) db[curUser].lastInt = i.mTag; } });
+            playSound('approve'); document.getElementById('admin-pass-in').value = ""; refresh();
+        } else { alert("סיסמה שגויה"); }
+    }
+
+    function refresh() {
+        const u = db[curUser]; document.getElementById('bal-val').innerText = u.b.toLocaleString(); document.getElementById('goal-input').value = u.g;
+        document.getElementById('goal-range').value = Math.min(u.g, 20000);
+        const p = u.g > 0 ? Math.floor((u.b/u.g)*100) : 0; document.getElementById('bar-fill').style.width = Math.min(p, 100) + "%"; document.getElementById('bar-fill').innerText = p + "%";
+        const pending = u.h.filter(i => !i.approved); document.getElementById('pending-section').style.display = pending.length ? 'block' : 'none';
+        document.getElementById('pending-list').innerHTML = pending.map(i => `⏳ ${i.d}: ${i.a}₪`).join(' | ');
+        document.getElementById('hist-view').innerHTML = u.h.filter(i => i.approved).map(i => `<div class="history-item"><span>${i.d}</span><span class="${i.t}">${i.t==='plus'?'+':'-'}${i.a}₪</span></div>`).join('');
+        localStorage.setItem('KidsBankV31', JSON.stringify(db));
+    }
+</script>
+</body>
+</html>
